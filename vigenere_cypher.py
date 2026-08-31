@@ -23,26 +23,23 @@ FREQ_EN = {
     'Y': 1.97,  'Z': 0.07
 }
 
-
 def remover_acentos(texto):
     """Remove diacríticos/acentos mantendo maiúsculas, minúsculas e símbolos."""
     nfkd = unicodedata.normalize('NFKD', texto)
     return "".join([c for c in nfkd if not unicodedata.combining(c)])
-
 
 def extrair_apenas_letras(texto):
     """Extrai apenas letras A-Z para a matemática da criptoanálise estatística."""
     texto_sem_acento = remover_acentos(texto)
     return "".join(filter(str.isalpha, texto_sem_acento.upper()))
 
-
 # ----------------------------------------------------------------------
 # 2. Parte I – Cifrador e Decifrador (Preservando Espaços e Símbolos)
 # ----------------------------------------------------------------------
 def vigenere_processar(texto, chave, decifrar=False):
     """
-    Processa a cifra mantendo espaços, quebras de linha e maiúsculas/minúsculas.
-    Avança o índice da chave apenas quando encontra letras alfabéticas.
+    Núcleo matemático da cifra de Vigenère. 
+    Aplica C = (P + K) mod 26 para cifrar e P = (C - K + 26) mod 26 para decifrar.
     """
     texto_sem_acento = remover_acentos(texto)
     chave_limpa = extrair_apenas_letras(chave)
@@ -55,25 +52,33 @@ def vigenere_processar(texto, chave, decifrar=False):
     chave_idx = 0
 
     for char in texto_sem_acento:
+        # Verifica se o caractere atual é uma letra alfabética (A-Z ou a-z)
         if char.isalpha() and char.isascii():
+            # Define a base ASCII para manter o case (maiúscula=65, minúscula=97)
             base = ord('A') if char.isupper() else ord('a')
+            
+            # Calcula o deslocamento numérico (0 a 25) baseado na letra da chave atual
             shift = ord(chave_limpa[chave_idx % len_chave]) - ord('A')
 
+            # Se for decifração, inverte o deslocamento (subtração em vez de soma)
             if decifrar:
                 shift = -shift
 
+            # Aplica a aritmética modular: desloca a letra, garante que fique no limite do 
+            # alfabeto (mod 26) e retorna para a tabela ASCII somando a base.
             novo_char = chr(((ord(char) - base + shift) % 26) + base)
             resultado.append(novo_char)
+            
+            # O índice da chave só avança se uma letra foi efetivamente processada
             chave_idx += 1
         else:
+            # Caracteres como espaços, números e pontuações são preservados intactos
             resultado.append(char)
 
     return "".join(resultado)
 
-
 def vigenere_cifrar(texto_claro, chave):
     return vigenere_processar(texto_claro, chave, decifrar=False)
-
 
 def vigenere_decifrar(criptograma, chave):
     return vigenere_processar(criptograma, chave, decifrar=True)
@@ -83,14 +88,21 @@ def vigenere_decifrar(criptograma, chave):
 # 3. Parte II – Ataque de Criptoanálise Estatística
 # ----------------------------------------------------------------------
 def indice_de_coincidencia(texto):
+    """
+    Calcula a probabilidade de duas letras aleatórias serem iguais.
+    Fórmula: IC = Soma( f * (f - 1) ) / ( N * (N - 1) )
+    """
     n = len(texto)
     if n <= 1:
         return 0.0
     freq = Counter(texto)
     return sum(f * (f - 1) for f in freq.values()) / (n * (n - 1))
 
-
 def estimar_tamanho_chave(criptograma, max_key_len=20, limiar_ic=0.060):
+    """
+    Testa comprimentos hipotéticos dividindo o texto em colunas.
+    O tamanho real geralmente produz um IC médio próximo ao de linguagens naturais (~0.07).
+    """
     texto_puro = extrair_apenas_letras(criptograma)
     ics_medios = []
 
@@ -100,11 +112,15 @@ def estimar_tamanho_chave(criptograma, max_key_len=20, limiar_ic=0.060):
     print(f"{'Tamanho (k)':<12} | {'IC Médio':<12} | {'Hipótese'}")
     print("-" * 60)
 
+    # Itera sobre os possíveis tamanhos de chave (de 1 a 20)
     for k in range(1, max_key_len + 1):
+        # texto_puro[i::k] fatia o texto extraindo letras separadas pelo tamanho k.
+        # Isso agrupa todas as letras cifradas por uma mesma posição da senha.
         ics = [indice_de_coincidencia(texto_puro[i::k]) for i in range(k)]
         avg_ic = sum(ics) / len(ics)
         ics_medios.append((k, avg_ic))
 
+        # Um IC médio > 0.060 sugere fortemente que as colunas são cifras de César simples (monoalfabéticas)
         status = "Possível chave natural" if avg_ic >= limiar_ic else "Polialfabético / Aleatório"
         print(f"{k:<12} | {avg_ic:<12.4f} | {status}")
 
@@ -123,8 +139,12 @@ def estimar_tamanho_chave(criptograma, max_key_len=20, limiar_ic=0.060):
     print(f"\n=> Tamanho sugerido automaticamente: {melhor_k}\n")
     return melhor_k
 
-
 def qui_quadrado(contagens, total, freq_esperada):
+    """
+    Mede a distância estatística entre a frequência do texto e a do idioma.
+    Fórmula: Qui = Soma( ((O - E)^2) / E )
+    Valores menores indicam maior semelhança com a linguagem natural.
+    """
     qui = 0.0
     for letra, perc in freq_esperada.items():
         esperado = (perc / 100.0) * total
@@ -133,8 +153,11 @@ def qui_quadrado(contagens, total, freq_esperada):
             qui += ((observado - esperado) ** 2) / esperado
     return qui
 
-
 def descobrir_chave(criptograma, freq_esperada, key_len, top_candidatos=3):
+    """
+    Quebra o texto em colunas baseadas no tamanho da chave (key_len).
+    Testa 26 deslocamentos por coluna buscando o menor valor de Qui-Quadrado.
+    """
     texto_puro = extrair_apenas_letras(criptograma)
     chave = []
 
@@ -142,18 +165,24 @@ def descobrir_chave(criptograma, freq_esperada, key_len, top_candidatos=3):
     print(f"ETAPA 2: Análise de Frequência por Posição (Chave tam = {key_len})")
     print("=" * 60)
 
+    # Itera por cada posição isolada da chave
     for i in range(key_len):
         bloco = texto_puro[i::key_len]
         total_bloco = len(bloco)
         scores = []
 
+        # Ataque de força bruta: testa todas as 26 letras do alfabeto para este bloco
         for shift in range(26):
+            # Decifra o bloco experimentalmente com o deslocamento 'shift'
             decifrado = [chr(((ord(c) - ord('A') - shift) % 26) + ord('A')) for c in bloco]
             contagens = Counter(decifrado)
+            
+            # Avalia quão similar o texto decifrado ficou em relação ao idioma natural
             score_qui = qui_quadrado(contagens, total_bloco, freq_esperada)
             letra_hipotese = chr(shift + ord('A'))
             scores.append((letra_hipotese, score_qui))
 
+        # Ordena as pontuações do menor (mais provável) para o maior (menos provável)
         scores.sort(key=lambda x: x[1])
         melhor_letra = scores[0][0]
         chave.append(melhor_letra)
@@ -182,13 +211,11 @@ def ler_texto_multilinhas(prompt):
             break
     return "\n".join(linhas)
 
-
 def formatar_saida(rotulo, texto, largura=80):
     print(f"\n[{rotulo}]")
     print("-" * largura)
     print(textwrap.fill(texto, width=largura, replace_whitespace=False))
     print("-" * largura)
-
 
 def main():
     while True:
