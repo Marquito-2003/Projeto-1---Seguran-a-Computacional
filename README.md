@@ -4,6 +4,7 @@ Professora Priscila Solis<br>
 Alex Batista Resende (231025261)<br>
 Marco Aurelio Gonçalves Fonseca (221021509)<br>
 Thomas Jefferson (202033561)<br>
+Luis Henrique Bessa de Melo (232009567)
 
 # Projeto 1 — Cifra de Vigenère e Criptoanálise Estatística
 
