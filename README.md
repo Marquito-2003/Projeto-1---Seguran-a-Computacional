@@ -1,9 +1,9 @@
 Segurança Computacional - 2026/2<br>
 Professora Priscila Solis<br>
 
-Alex Batista Resende (231025261)
-Marco Aurelio Gonçalves Fonseca (221021509)
-Thomas Jefferson (202033561)
+Alex Batista Resende (231025261)<br>
+Marco Aurelio Gonçalves Fonseca (221021509)<br>
+Thomas Jefferson (202033561)<br>
 
 # Projeto 1 — Cifra de Vigenère e Criptoanálise Estatística
 
