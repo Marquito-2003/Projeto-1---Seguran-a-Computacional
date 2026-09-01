@@ -24,7 +24,7 @@ FREQ_EN = {
 }
 
 def remover_acentos(texto):
-    """Remove diacríticos/acentos mantendo maiúsculas, minúsculas e símbolos."""
+    """Remove acentos mantendo maiúsculas, minúsculas e símbolos."""
     nfkd = unicodedata.normalize('NFKD', texto)
     return "".join([c for c in nfkd if not unicodedata.combining(c)])
 
